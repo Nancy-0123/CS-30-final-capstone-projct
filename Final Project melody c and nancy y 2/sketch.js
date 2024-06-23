@@ -634,6 +634,87 @@ function drawMap() {
   }
 }
 
+//Draw random maps
+function generateTileMap(numberOfRows) {
+  const numberOfColumns = 16;
+  const tileMap = new Array(numberOfRows)
+    .fill(null)
+    .map(_ => new Array(numberOfColumns).fill(null));
+  
+  const startingRow = numberOfRows - 2;
+  
+  // Initialize starting row with '.'
+  tileMap[startingRow] = new Array(numberOfColumns).fill('.');
+  
+  //Make sure there is a starting block drawn at column 0 and several blocks lead to the door
+  let randomDoorIndex = Math.max(8, Math.floor(Math.random() * numberOfColumns));
+  tileMap[5][randomDoorIndex] = 'b';
+  tileMap[5][randomDoorIndex - 1] = 'b';
+  tileMap[4][randomDoorIndex] = 'd';
+  tileMap[startingRow + 1][0] = 'b';
+  
+  //Certain the number of tiles(at least 6 and at most 8)
+  let tileCount = 0;
+  const minTiles = 6; 
+  const maxTiles = 8;
+  const minTilesPerRow = 1; 
+
+  let rowsWithTiles = new Set();
+  for (let i = startingRow; i >= 2; i--) {
+    if (rowsWithTiles.size >= 4) break; 
+    let tilesPlacedInRow = 0;
+    for (let j = 0; j < randomDoorIndex; j++) { 
+      if (tileCount >= maxTiles) break; 
+      if (tileCount < minTiles || Math.random() < 0.3) { 
+        tileMap[i][j] = Math.random() < 0.5 ? 'b' : 'w';
+        tileCount++;
+        tilesPlacedInRow++;
+        rowsWithTiles.add(i);
+      }
+    }
+    if (tileCount >= maxTiles) break; 
+    if (tilesPlacedInRow < minTilesPerRow) {
+      const randomColumnIndex = Math.floor(Math.random() * randomDoorIndex);
+      tileMap[i][randomColumnIndex] = Math.random() < 0.5 ? 'b' : 'w';
+      tileCount++;
+      rowsWithTiles.add(i);
+    }
+  }
+
+  while (tileCount < minTiles) {
+    const i = 2 + Math.floor(Math.random() * (startingRow - 1));
+    do {
+      j = Math.floor(Math.random() * randomDoorIndex);
+    } while (tileMap[i][j]);
+    tileMap[i][j] = Math.random() < 0.5 ? 'b' : 'w';
+    tileCount++;
+  }
+
+  // Add coins ('c') or spikes ('s') on top of the tiles, ensuring only one spike and it isn't placed in column 0, 1, or the restricted columns
+  let spikePlaced = false;
+  for (let i = startingRow; i >= 3; i--) {
+    for (let j = 2; j < randomDoorIndex - 1; j++) {
+      if (tileMap[i][j] === 'b' || tileMap[i][j] === 'w') {
+        if (Math.random() < 0.5) { 
+          if (!spikePlaced && Math.random() < 0.5) {
+            if (tileMap[i + 1][j - 1] !== '.' && tileMap[i + 1][j + 1] !== '.' ) { 
+              tileMap[i-1][j] = 's';
+              spikePlaced = true;
+            } 
+            else {
+              tileMap[i - 1][j] = 'c';
+            }
+          } else {
+            tileMap[i - 1][j] = 'c';
+          }
+        }
+      }
+    }
+  }
+
+  return tileMap;
+}
+
 //Draw tile maps for different levels and 
 const TILE_MAPS = [
   [ //Level 1
