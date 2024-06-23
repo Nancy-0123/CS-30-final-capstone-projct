@@ -1,12 +1,12 @@
-//Capstone Project
+// Capstone Final Project
 // Melody Chen and Nancy Yang
-// June 22, 2024
-// 
+// June 23, 2024
+// Building a platforming game with different features, levels, and modes
 
-let captainCanuck, groundSensor, groundSensor2, coins, spikes, door;
+let captainCanuck, groundSensor, groundSensor2, coins, spikes, door, water;
 let walkable, floortiles;
 let playerImg1, playerImg2, floorTileImg, bgImg, coinsImg, platformImg, spikesImg, doorImg, lavaImg, lava2Img, blockImg, waterImg;
-let backgroundMusic, coinSound;
+let backgroundMusic, coinSound, spikeSound;
 const TILE_SIZE = 100;
 let currentLevel = 0;
 let score = 0;
@@ -42,6 +42,7 @@ function preload() {
   blockImg = loadImage("assets/block.png");
   waterImg = loadImage("assets/water.jpg");
 
+  spikeSound = loadSound("assets/spike.mp3");
   coinSound = loadSound("assets/coin_sound.mp3");
   backgroundMusic = loadSound("assets/avengers_theme.mp3");
 }
@@ -49,7 +50,7 @@ function preload() {
 function setup() {
   createCanvas(windowWidth, windowHeight);
   
-  //Add different buttons on different windows
+  //Add different buttons for different windows
   startGameButton = createButton('Start Game');
   styleButton(startGameButton, width / 4 - 50, height / 2);
   startGameButton.mousePressed(startGame);
@@ -91,7 +92,7 @@ function setup() {
   captainCanuck = new Player(0, 500, 70, 100);
   spiderMan = new Player2(0, 500, 70, 100);
   
-  //Add a groundsensor to each player for detecting the ground
+  //Add a groundsensor to each character for detecting the ground
   groundSensor = createSprite(captainCanuck.x, captainCanuck.y + captainCanuck.height / 2, captainCanuck.width * 0.8, 5);
   groundSensor.visible = false;
   groundSensor.mass = 0.1;
@@ -105,6 +106,7 @@ function setup() {
   coins = new Group();
   spikes = new Group();
   door = new Group();
+  water = new Group();
 
   //Add a skip button that allows the player to skip the current level
   skipButton = createButton('Skip');
@@ -241,7 +243,6 @@ function startGame() {
   levelTextAlpha = 255; // Reset the level text transparency
 }
 
-// 
 function playGame() {
   background(bgImg);
   
@@ -274,10 +275,12 @@ function playGame() {
   //Check collisions with the spikes and restart current level is touching spikes
   captainCanuck.sprite.overlap(spikes, (player, spike) => {
     captainCanuck = new Player(0, 500, 70, 100);
+    spikeSound.play();
   });
 
   spiderMan.sprite.overlap(spikes, (player, spike) => {
     spiderMan = new Player2(0, 500, 70, 100);
+    spikeSound.play();
   });
 
   //End current level when reaches the door
@@ -287,7 +290,8 @@ function playGame() {
     });
   }
   else if (playMode === "double") { //For a double player mode, both players need to reach the door to pass current level
-    captainCanuck.sprite.overlap(door, (player, doorSprite) => {  //Check is Captain Canuck touches the door
+    //Check if Captain Canuck touches the door
+    captainCanuck.sprite.overlap(door, (player, doorSprite) => {  
       captainCanuckTouchedDoor = true;
       checkBothPlayersTouchedDoor();
     });
@@ -298,20 +302,14 @@ function playGame() {
       checkBothPlayersTouchedDoor();
     });
   }
-  
-  //Check if the player is on water
-  captainCanuck.onWater = false;
-  captainCanuck.sprite.overlap(walkable, (player, water) => {
-    if (water.getAnimationLabel() === waterImg) {
-      captainCanuck.onWater = true;
-    }
+
+  //Check if each character is on water
+  captainCanuck.sprite.overlap(water, (player, waterSprite) => {  
+    captainCanuck.onWater = true;
   });
 
-  spiderMan.onWater = false;
-  spiderMan.sprite.overlap(walkable, (player, water) => {
-    if (water.getAnimationLabel() === waterImg) {
-      spiderMan.onWater = true;
-    }
+  spiderMan.sprite.overlap(water, (player, waterSprite) => {  
+    spiderMan.onWater = true;
   });
 
   captainCanuck.move();
@@ -448,9 +446,8 @@ The level can only be passed when both players reach the door
      up arrow → jump                   S → jump
 left/right arrow + up arrow → long jump  A/D + S → long jump
 5. Do NOT touch SPIKES or LAVA; otherwise, you will have to restart (evil face)
-6. You can walk on/in water, but it will slow you down for a little bit
+6. You can walk on/in water, but it will slow you down
 `, width / 2, height / 2 - 250);
-
 
   // Good luck text
   textFont('Impact');
@@ -467,6 +464,7 @@ function nextLevel() {
   nextLevelButton.hide();
   restartLevelButton.hide();
 
+  //Clear different sprites from the previous level
   floortiles.removeSprites();
   floortiles.clear();
 
@@ -484,7 +482,7 @@ function nextLevel() {
 
   currentLevel++;
 
-  //Generrate random maps after level 10
+  //Generate random maps after level 10
   if (currentLevel >= TILE_MAPS.length) {
       TILE_MAPS.push(generateTileMap(8)); 
   }
@@ -528,6 +526,9 @@ function restartLevel() {
   door.removeSprites();
   door.clear();
 
+  water.removeSprites();
+  water.clear();
+
   drawMap();
   captainCanuck = new Player(0, 100, 70, 100);
   spiderMan = new Player2(0, 100, 70, 100);
@@ -562,6 +563,9 @@ function resetGame() {
 
   door.removeSprites();
   door.clear();
+
+  water.removeSprites();
+  water.clear();
 
   drawMap();
   captainCanuck = new Player(0, 100, 70, 100);
@@ -636,14 +640,28 @@ class Player {
     }
     else {
       this.speedY = 0;
-      if (keyIsDown(LEFT_ARROW)) {  
-        this.speedX -= 1.2;
-        this.facingRight = false;
+      if (!this.onWater) {
+        if (keyIsDown(LEFT_ARROW)) {  
+          this.speedX -= 1.2;
+          this.facingRight = false;
+        }
+        if (keyIsDown(RIGHT_ARROW)) {
+          this.speedX += 1.2;
+          this.facingRight = true;
+        }
       }
-      if (keyIsDown(RIGHT_ARROW)) {
-        this.speedX += 1.2;
-        this.facingRight = true;
-      }
+      else if (this.onWater) {  //If on water, slow down
+        if (keyIsDown(LEFT_ARROW)) {  
+          this.speedX -= 0.3;
+          this.facingRight = false;
+        }
+        if (keyIsDown(RIGHT_ARROW)) {
+          this.speedX += 0.3;
+          this.facingRight = true;
+        }
+        this.onWater = false;
+      } 
+
       if (keyIsDown(UP_ARROW) && this.onGround) {
         this.jump = true;
       }
@@ -664,11 +682,6 @@ class Player {
     //Adjust the location of the sprite to detect coins/spikes
     this.sprite.position.x = this.x + this.player.width / 4;
     this.sprite.position.y = this.y + this.player.height;
-    
-    //Decrease the speed for a little bit if on water
-    if (this.onWater) {
-      this.speedX *= 0.1;
-    }
   }
 
   display() { // Display the player and let the player face the direction it is going
@@ -707,7 +720,7 @@ class Player2 {
   move() {
     if (!this.onGround) {
       this.speedY += 0.3; // Gravity
-      if (keyIsDown(65)) {     
+      if (keyIsDown(65)) {    
         this.speedX -= 0.3;
         this.facingRight = false;
       }
@@ -719,25 +732,40 @@ class Player2 {
     }
     else {
       this.speedY = 0;
-      if (keyIsDown(65)) {
-        this.speedX -= 1.2;
-        this.facingRight = false;
+      if (!this.onWater) {
+        if (keyIsDown(65)) {
+          this.speedX -= 1.2;
+          this.facingRight = false;
+        }
+        if (keyIsDown(68)) {
+          this.speedX += 1.2;
+          this.facingRight = true;
+        }
       }
-      if (keyIsDown(68)) {
-        this.speedX += 1.2;
-        this.facingRight = true;
+      else if (this.onWater) {   //If on water, slow down
+        if (keyIsDown(65)) {
+          this.speedX -= 0.3;
+          this.facingRight = false;
+        }
+        if (keyIsDown(68)) {
+          this.speedX += 0.3;
+          this.facingRight = true;
+        }
+        this.onWater = false;
       }
+
       if (keyIsDown(87) && this.onGround) {
         this.jump = true;
       }
+
       if (this.jump) {
         this.speedY = -10;
         this.jump = false;
         this.onGround = false;
       }
-
       this.speedX *= 0.8;
     }
+
     //Constrain the speed range
     this.speedX = constrain(this.speedX, -10, 10);
 
@@ -746,12 +774,7 @@ class Player2 {
 
     //Adjust the location of the sprite to check collisions with coins/spikes
     this.sprite.position.x = this.x + this.player.width / 2;
-    this.sprite.position.y = this.y + this.player.height;
-
-    //If on water slow down for a little bit
-    if (this.onWater) {
-      this.speedX *= 0.1;
-    }
+    this.sprite.position.y = this.y + this.player.height * 1.5;
   }
 
   display() { // Display the player and let the player face the direction it is going
@@ -837,7 +860,7 @@ function drawMap() {
         spikes.add(lavaSprite);
       }
 
-      //Add lava block sprites which are part of the spike group
+      //Add lava block sprites which are part of the spike group(since they have the same function)
       if (tileMap[row][col] === 'L') {
         let lava2Sprite = createSprite(col * TILE_SIZE, row * TILE_SIZE, TILE_SIZE, TILE_SIZE);
         lava2Sprite.addImage(lava2Img);
@@ -845,12 +868,13 @@ function drawMap() {
         spikes.add(lava2Sprite);
       }
 
-      //Add water sprites which are walkable
+      //Add water sprites which are walkable and part of the water group
       if (tileMap[row][col] === 'w') {
         let waterSprite = createSprite(col * TILE_SIZE, row * TILE_SIZE, TILE_SIZE, TILE_SIZE);
         waterSprite.addImage(waterImg);
         waterSprite.scale = 2.5;
         walkable.add(waterSprite);
+        water.add(waterSprite);
       }
     }
   }
